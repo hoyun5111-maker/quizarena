@@ -3,71 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz Arena - Sade Admin</title>
+    <title>Quiz Arena - Sade Yönetim Paneli</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans p-4 md:p-6">
+<body class="bg-slate-900 text-slate-100 font-sans p-4">
 
     <div id="auth-screen" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-50 p-4">
-        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-center">
-            <h1 class="text-xl font-black text-indigo-400 mb-4">🔒 Admin Girişi</h1>
-            <input type="password" id="password-input" placeholder="Şifre" class="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-xl text-center font-bold tracking-widest focus:outline-none mb-4 text-white">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
+            <h1 class="text-xl font-bold text-indigo-400 mb-4">🔒 Admin Girişi</h1>
+            <input type="password" id="password-input" placeholder="Şifre" class="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-xl text-center font-bold tracking-widest mb-4 focus:outline-none text-white">
             <button onclick="checkAdminPassword()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl transition">Giriş Yap</button>
             <p id="auth-error" class="text-red-400 text-xs font-semibold mt-2 hidden">Hatalı şifre kanka!</p>
         </div>
     </div>
 
-    <div id="admin-panel" class="hidden max-w-5xl mx-auto space-y-6">
+    <div id="admin-panel" class="hidden max-w-5xl mx-auto space-y-4">
         
         <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-3">
-            <h1 class="text-lg font-bold text-indigo-400">🎛️ Quiz Arena Kontrol Konsolu</h1>
+            <h1 class="text-base font-black text-indigo-400">🎛️ QUIZ ARENA ADMIN STATION</h1>
             <div class="flex gap-2">
-                <input type="text" id="room-input" placeholder="Oda Kodu" class="bg-slate-900 border border-slate-600 rounded-xl px-3 py-1 w-32 text-center font-bold uppercase focus:outline-none">
-                <button onclick="createRoom()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-1 rounded-xl text-sm transition">Oda Kur</button>
+                <input type="text" id="room-input" placeholder="Oda Kodu" class="bg-slate-900 border border-slate-600 rounded-xl px-3 py-1 w-28 text-center font-bold uppercase text-white focus:outline-none">
+                <button onclick="createRoom()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-1 rounded-xl text-xs transition">Oda Kur</button>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             
-            <div class="md:col-span-2 space-y-6">
+            <div class="md:col-span-2 space-y-4">
                 
-                <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl space-y-3">
-                    <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-300">📺 YouTube Sinyal Bağlantısı</h2>
+                <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl space-y-3">
+                    <p class="text-xs font-bold text-indigo-300 uppercase tracking-wide">📺 YouTube Canlı Yayın Veri Girişi</p>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <input type="text" id="yt-input" placeholder="Yayın Video ID (Örn: 5xK_7_d8w-w)" class="bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-sm focus:outline-none">
-                        <input type="text" id="chat-input" placeholder="Özel Chat ID (Boş kalabilir)" class="bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-sm focus:outline-none">
+                        <input type="text" id="yt-input" placeholder="Canlı Yayın ID veya Tam Link" class="bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-sm focus:outline-none text-white">
+                        <input type="text" id="chat-input" placeholder="Farklıysa Chat ID (Boş kalabilir)" class="bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-sm focus:outline-none text-white">
                     </div>
-                    <button onclick="updateStream()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-xl text-sm transition">📡 Sinyali Senkronize Et</button>
+                    <button onclick="updateStream()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-xl text-xs transition">📡 Sinyali Odalara Gönder ve Chati Kilitle</button>
                 </div>
 
-                <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl space-y-4">
-                    <div class="flex justify-between items-center border-b border-slate-700 pb-2">
-                        <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-300">📝 Kelime / Tabu Yönetimi</h2>
+                <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl space-y-3">
+                    <div class="flex justify-between items-center border-b border-slate-700 pb-1.5">
+                        <p class="text-xs font-bold text-indigo-300 uppercase tracking-wide">📝 Soru / Tabu Kelime Modülü</p>
                         
-                        <button id="tolerans-btn" onclick="toggleTolerans()" class="bg-emerald-600 text-white text-[11px] font-black px-3 py-1 rounded-full border border-emerald-500 shadow-inner">
+                        <button id="tolerans-btn" onclick="toggleTolerans()" class="bg-emerald-600 text-white text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500 shadow-inner">
                             Harf Toleransı: AÇIK ✅
                         </button>
                     </div>
 
                     <div class="space-y-3">
-                        <textarea id="question-input" rows="2" placeholder="Soru metni veya Tabu kelime ipuçları kanka..." class="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-sm focus:outline-none"></textarea>
+                        <textarea id="question-input" rows="2" placeholder="Soru metni veya Tabu yasaklı kelime ipuçlarını buraya yaz kanka..." class="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-sm text-white focus:outline-none"></textarea>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <input type="text" id="correct-input" placeholder="Doğru Kelime (Örn: Çin)" class="bg-slate-900 border border-slate-600 rounded-xl p-2.5 text-sm focus:outline-none font-bold text-center">
-                            <input type="number" id="duration-input" value="30" placeholder="Süre (Saniye)" class="bg-slate-900 border border-slate-600 rounded-xl p-2.5 text-sm focus:outline-none text-center">
+                            <input type="text" id="correct-input" placeholder="Doğru Cevap / Kelime" class="bg-slate-900 border border-slate-600 rounded-xl p-2 text-sm text-center font-black text-white focus:outline-none">
+                            <input type="number" id="duration-input" value="30" placeholder="Süre (Saniye)" class="bg-slate-900 border border-slate-600 rounded-xl p-2 text-sm text-center text-white focus:outline-none">
                         </div>
-                        <button onclick="sendQuestion()" class="w-full bg-green-600 hover:bg-green-700 text-white font-black py-3 rounded-xl text-base transition shadow transform hover:-translate-y-0.5">🚀 Soruyu Gönder ve Chati Dinle</button>
+                        <button onclick="sendQuestion()" class="w-full bg-green-600 hover:bg-green-700 text-white font-black py-3 rounded-xl text-sm transition tracking-wider">🚀 SORUYU BAŞLAT VE YOUTUBE CHATİ DİNLE</button>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-slate-800 border border-slate-700 p-5 rounded-xl flex flex-col h-[480px]">
-                <h2 class="text-sm font-bold border-b border-slate-700 pb-2 text-yellow-400 flex justify-between items-center">
-                    <span>🏆 Canlı Skor Tablosu (VAR)</span>
-                    <span id="live-timer" class="text-xs bg-slate-900 px-2 py-0.5 rounded-full text-indigo-400 hidden">0s</span>
-                </h2>
-                <div id="leaderboard-list" class="mt-3 space-y-1.5 flex-1 overflow-y-auto">
-                    <p class="text-slate-500 text-xs text-center py-6">Oyuncu yok.</p>
+            <div class="bg-slate-800 border border-slate-700 p-4 rounded-xl flex flex-col h-[440px]">
+                <p class="text-xs font-bold text-yellow-400 border-b border-slate-700 pb-2 flex justify-between">
+                    <span>🏆 CANLI LİDERLİK TABLOSU</span>
+                    <span id="live-timer" class="text-indigo-400 hidden">0s</span>
+                </p>
+                <div id="leaderboard-list" class="mt-3 space-y-2 flex-1 overflow-y-auto">
+                    <p class="text-slate-500 text-xs text-center py-6">Kayıtlı oyuncu yok.</p>
                 </div>
             </div>
         </div>
@@ -92,10 +92,10 @@
             toleransAcik = !toleransAcik;
             const btn = document.getElementById("tolerans-btn");
             if(toleransAcik) {
-                btn.className = "bg-emerald-600 text-white text-[11px] font-black px-3 py-1 rounded-full border border-emerald-500 shadow-inner";
+                btn.className = "bg-emerald-600 text-white text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500 shadow-inner";
                 btn.innerText = "Harf Toleransı: AÇIK ✅";
             } else {
-                btn.className = "bg-red-600 text-white text-[11px] font-black px-3 py-1 rounded-full border border-red-500 shadow-inner";
+                btn.className = "bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full border border-red-500 shadow-inner";
                 btn.innerText = "Harf Toleransı: KAPALI ❌ (Tam Eşleşme)";
             }
         }
@@ -104,16 +104,16 @@
             const room = document.getElementById("room-input").value.trim().toUpperCase();
             if(!room) return;
             socket.emit("joinRoom", { room, name: "Yayıncı", role: "admin" }, (res) => {
-                if(res.success) { currentRoom = room; alert(`Oda #${room} Aktif!`); }
+                if(res.success) { currentRoom = room; alert(`Oda #${room} Başarıyla Kuruldu!`); }
             });
         }
 
         function updateStream() {
             const ytId = document.getElementById("yt-input").value.trim();
             const chatId = document.getElementById("chat-input").value.trim();
-            if(!currentRoom || !ytId) return alert("Oda kodu ve Video ID gerekli kanka!");
+            if(!currentRoom || !ytId) return alert("Oda ve Yayın Linki eksik kanka!");
             socket.emit("setStream", { room: currentRoom, youtubeId: ytId, chatId: chatId });
-            alert("Yayın ve Chat Senkronize Edildi!");
+            alert("Yayın ve Canlı Chat dinleyicisi arka planda kilitlendi!");
         }
 
         function sendQuestion() {
@@ -122,7 +122,7 @@
             const correctAnswer = document.getElementById("correct-input").value.trim();
             const duration = parseInt(document.getElementById("duration-input").value) || 30;
 
-            if(!question || !correctAnswer) return alert("Eksik alan var kanka!");
+            if(!question || !correctAnswer) return alert("Soru ve Doğru Cevap zorunlu kanka!");
 
             socket.emit("startQuestion", {
                 room: currentRoom,
@@ -147,7 +147,7 @@
                 let m = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : "⚪";
                 const row = document.createElement("div");
                 row.className = "flex justify-between items-center bg-slate-950 p-2 rounded-lg border border-slate-800 text-xs";
-                row.innerHTML = `<div class="flex items-center gap-2"><span>${m}</span><span class="font-bold">${name}</span></div><span class="bg-indigo-950 text-indigo-400 font-bold px-2 py-0.5 rounded border border-indigo-900">${score} P</span>`;
+                row.innerHTML = `<div class="flex items-center gap-2"><span>${m}</span><span class="font-bold">${name}</span></div><span class="bg-indigo-950 text-indigo-400 font-black px-2 py-0.5 rounded border border-indigo-900">${score} P</span>`;
                 listEl.appendChild(row);
             });
         });
