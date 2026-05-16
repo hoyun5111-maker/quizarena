@@ -21,6 +21,7 @@ io.on("connection", (socket) => {
                 rooms[room] = {
                     adminId: socket.id,
                     youtubeId: "",
+                    chatId: "", // Yeni eklenen Chat ID alanı
                     players: {},
                     currentQuestion: null,
                     timer: null
@@ -48,17 +49,20 @@ io.on("connection", (socket) => {
         socket.roomName = room;
         socket.playerName = name;
 
-        callback({ success: true, youtubeId: rooms[room].youtubeId });
+        // Oyuncu girdiğinde hem yayın id hem chat id bilgisini gönderiyoruz
+        callback({ success: true, youtubeId: rooms[room].youtubeId, chatId: rooms[room].chatId });
         
         // Admin tablosunu güncelle
         io.to(rooms[room].adminId).emit("updateLeaderboard", rooms[room].players);
     });
 
-    // YouTube Yayını Ayarlama
-    socket.on("setStream", ({ room, youtubeId }) => {
+    // YouTube Yayını ve Chat Ayarlama
+    socket.on("setStream", ({ room, youtubeId, chatId }) => {
         if (rooms[room]) {
             rooms[room].youtubeId = youtubeId;
-            socket.to(room).emit("updateStream", youtubeId);
+            rooms[room].chatId = chatId;
+            // Odadaki tüm oyunculara hem yayın hem chat id'sini fırlatıyoruz
+            socket.to(room).emit("updateStream", { youtubeId, chatId });
         }
     });
 
@@ -115,7 +119,7 @@ io.on("connection", (socket) => {
         
         let isCorrect = false;
 
-        // BÜYÜK/KÜÇÜK HARF DUYARSIZLIĞI GÜNCELLEMESİ (Burada yapıldı)
+        // BÜYÜK/KÜÇÜK HARF DUYARSIZLIĞI KONTROLÜ
         if (q.type === "text") {
             if (answer.trim().toLowerCase() === q.correctAnswer.trim().toLowerCase()) {
                 isCorrect = true;
