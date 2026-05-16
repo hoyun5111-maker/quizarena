@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Arena - Oyuncu</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #81ecec; margin: 0; padding: 0; overflow: hidden; height: 100vh; }
+        .game-layout { display: flex; width: 100vw; height: 100vh; }
+        
+        .panel-stream { flex: 1.2; background: #000; border-right: 3px solid #6c5ce7; height: 100%; display: flex; justify-content: center; align-items: center; }
+        .panel-stream iframe { width: 100%; height: 100%; border: none; }
+        
+        .panel-chat { flex: 0.8; background: #1e1e24; border-right: 3px solid #6c5ce7; height: 100%; }
+        .panel-chat iframe { width: 100%; height: 100%; border: none; }
+        
+        .panel-interaction { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; background: #81ecec; height: 100%; }
+        .sky { position: absolute; width: 100%; height: 55%; top: 0; pointer-events: none; }
+        
+        .cloud { 
+            position: absolute; background: #fff; width: 100px; height: 35px; border-radius: 50px; 
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1); animation: float 5s ease-in-out infinite alternate; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; z-index: 1; transition: all 0.8s ease-in-out;
+        }
+        .cloud::before, .cloud::after { content: ''; position: absolute; background: inherit; border-radius: 50%; z-index: -1; }
+        .cloud::before { width: 45px; height: 45px; top: -20px; left: 15px; }
+        .cloud::after { width: 55px; height: 55px; top: -28px; right: 15px; }
+        .cloud .player-info { position: relative; z-index: 2; text-align: center; font-size: 12px; color: #2d3436; }
+
+        @keyframes float { from { transform: translateY(0); } to { transform: translateY(-12px); } }
+
+        .card { background: rgba(255, 255, 255, 0.95); padding: 25px; border-radius: 20px; width: 85%; max-width: 360px; text-align: center; box-shadow: 0 12px 30px rgba(0,0,0,0.15); z-index: 10; margin-top: auto; margin-bottom: 30px; }
+        #timer-box { font-size: 40px; font-weight: bold; color: #ff7675; margin-bottom: 5px; }
+        input, button { width: 100%; padding: 14px; margin: 8px 0; border-radius: 12px; border: 2px solid #eee; font-size: 15px; box-sizing: border-box; }
+        button { background: #6c5ce7; color: white; border: none; cursor: pointer; font-weight: bold; }
+        .opt-btn { background: #f8f9fa; color: #6c5ce7; border: 2px solid #6c5ce7; margin: 5px 0; transition: 0.2s; }
+        .opt-btn:hover { background: #6c5ce7; color: white; }
+        .funny-msg { color: #636e72; font-style: italic; margin-top: 15px; display: block; font-weight: bold; }
+        .hidden { display: none !important; }
+        .score-badge { color: #6c5ce7; font-weight: bold; font-size: 18px; margin-bottom: 5px; }
+
+        @media (max-width: 900px) {
+            .game-layout { flex-direction: column; overflow-y: auto; }
+            .panel-stream, .panel-chat, .panel-interaction { flex: none; width: 100%; height: 33.3vh; border-right: none; border-bottom: 3px solid #6c5ce7; }
+            .sky { height: 40%; }
+            .card { margin: auto; padding: 15px; width: 90%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-layout">
+        <div class="panel-stream" id="stream-zone">
+            <div style="color: white; text-align: center;" id="no-stream-msg">Yayın bekleniyor... 📺</div>
+            <iframe id="yt-player" class="hidden" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+
+        <div class="panel-chat" id="chat-zone">
+            <div style="color: #636e72; text-align: center; padding-top: 50px;" id="no-chat-msg">Chat bekleniyor... 💬</div>
+            <iframe id="yt-chat" class="hidden" src="" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+        </div>
+
+        <div class="panel-interaction">
+            <div class="sky" id="cloud-container"></div>
+            <div class="card">
+                <div id="score-display" class="score-badge hidden">Puan: 0</div>
+                <div id="timer-box" class="hidden">0</div>
+
+                <div id="login-screen">
+                    <h2>Giriş Yap ☁️</h2>
+                    <div id="login-err" style="color:red; font-weight:bold; margin-bottom:5px;"></div>
+                    <input type="text" id="roomCode" placeholder="ODA KODU">
+                    <input type="text" id="username" placeholder="KULLANICI ADIN">
+                    <button onclick="join()">KATIL</button>
+                </div>
+
+                <div id="wait-screen" class="hidden">
+                    <h3 id="wait-msg">Soru Bekleniyor... 🚀</h3>
+                    <span id="funny-text" class="funny-msg"></span>
+                </div>
+
+                <div id="question-screen" class="hidden">
+                    <h2 id="q-text">Soru Yükleniyor...</h2>
+                    <div id="multiple-choice"></div>
+                    <div id="text-input" class="hidden">
+                        <input type="text" id="writtenAns" placeholder="Cevabı yaz ve Enterla..." onkeydown="if(event.key === 'Enter') submitWritten()">
+                        <button onclick="submitWritten()">GÖNDER</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let myRoom = "", currentMode = "quiz";
+
+        function join() {
+            const r = document.getElementById('roomCode').value.toUpperCase().trim();
+            const u = document.getElementById('username').value.trim();
+            if(!r || !u) return alert("Boş bırakma kanka!");
+            socket.emit('joinRoom', { roomId: r, username: u });
+        }
+
+        socket.on('loginError', msg => { document.getElementById('login-err').innerText = msg; });
+        socket.on('joinedSuccessfully', id => { myRoom = id; showScreen('wait-screen'); document.getElementById('score-display').classList.remove('hidden'); });
+
+        socket.on('updatePlayers', players => {
+            const container = document.getElementById('cloud-container');
+            container.innerHTML = "";
+            const maxScore = Math.max(...players.map(p => p.score), 100);
+
+            players.forEach((p, i) => {
+                const cloud = document.createElement('div');
+                cloud.className = 'cloud';
+                const ratio = p.score / maxScore;
+                cloud.style.top = (70 - (ratio * 55)) + "%";
+                cloud.style.left = (10 + (i * 22)) % 80 + "%";
+                
+                const hue = 240 - (ratio * 240); 
+                cloud.style.backgroundColor = `hsl(${hue}, 90%, 85%)`;
+                cloud.style.color = `hsl(${hue}, 100%, 20%)`;
+                
+                cloud.innerHTML = `<div class="player-info"><b>${p.username}</b><br>${p.score} P</div>`;
+                container.appendChild(cloud);
+            });
+        });
+
+        // Odaya ilk girildiğinde yayını ve chat'i otomatik açan kod
+        socket.on('initMedia', data => {
+            const currentDomain = window.location.hostname === "localhost" ? "localhost" : window.location.hostname;
+            if(data.streamId) {
+                document.getElementById('no-stream-msg').classList.add('hidden');
+                const p = document.getElementById('yt-player');
+                p.classList.remove('hidden');
+                p.src = `https://www.youtube.com/embed/` + data.streamId + `?autoplay=1&origin=` + window.location.origin;
+            }
+            if(data.chatId) {
+                document.getElementById('no-chat-msg').classList.add('hidden');
+                const c = document.getElementById('yt-chat');
+                c.classList.remove('hidden');
+                c.src = `https://www.youtube.com/live_chat?v=` + data.chatId + `&embed_domain=` + currentDomain;
+            }
+        });
+
+        socket.on('newQuestion', data => {
+            currentMode = data.mode;
+            const currentDomain = window.location.hostname === "localhost" ? "localhost" : window.location.hostname;
+
+            if(data.streamId) {
+                document.getElementById('no-stream-msg').classList.add('hidden');
+                const p = document.getElementById('yt-player');
+                p.classList.remove('hidden');
+                p.src = `https://www.youtube.com/embed/` + data.streamId + `?autoplay=1&origin=` + window.location.origin;
+            }
+            if(data.chatId) {
+                document.getElementById('no-chat-msg').classList.add('hidden');
+                const c = document.getElementById('yt-chat');
+                c.classList.remove('hidden');
+                c.src = `https://www.youtube.com/live_chat?v=` + data.chatId + `&embed_domain=` + currentDomain;
+            }
+
+            showScreen('question-screen');
+            document.getElementById('timer-box').classList.remove('hidden');
+            document.getElementById('q-text').innerText = data.text;
+
+            let counter = data.timeLeft;
+            document.getElementById('timer-box').innerText = counter;
+            clearInterval(window.timerInt);
+            window.timerInt = setInterval(() => {
+                counter--; document.getElementById('timer-box').innerText = counter;
+                if(counter <= 0) clearInterval(window.timerInt);
+            }, 1000);
+
+            if(data.type === 'multiple') {
+                const mc = document.getElementById('multiple-choice');
+                mc.innerHTML = ""; mc.classList.remove('hidden');
+                document.getElementById('text-input').classList.add('hidden');
+                data.options.forEach((opt, i) => {
+                    if(opt) mc.innerHTML += `<button class="opt-btn" onclick="sendAns('` + i + `')">` + opt + `</button>`;
+                });
+            } else {
+                document.getElementById('multiple-choice').classList.add('hidden');
+                document.getElementById('text-input').classList.remove('hidden');
+                document.getElementById('writtenAns').value = "";
+                setTimeout(() => document.getElementById('writtenAns').focus(), 150);
+            }
+        });
+
+        socket.on('timeUp', () => {
+            clearInterval(window.timerInt);
+            document.getElementById('funny-text').innerText = "Süre Doldu!";
+            showScreen('wait-screen');
+            document.getElementById('timer-box').classList.add('hidden');
+        });
+
+        socket.on('tabuWin', data => {
+            clearInterval(window.timerInt);
+            showScreen('wait-screen');
+            document.getElementById('wait-msg').innerHTML = `<span style="color:green">BİLDİ! 🎉</span><br>` + data.winner;
+            document.getElementById('funny-text').innerText = "Cevap: " + data.word;
+            document.getElementById('timer-box').classList.add('hidden');
+        });
+
+        function sendAns(v) { socket.emit('submitAnswer', { roomId: myRoom, answer: v }); goWait(); }
+        function submitWritten() {
+            const v = document.getElementById('writtenAns').value.trim();
+            if(!v) return;
+            socket.emit('submitAnswer', { roomId: myRoom, answer: v });
+            if(currentMode === 'tabu') { document.getElementById('writtenAns').value = ""; } else { goWait(); }
+        }
+        function goWait() { showScreen('wait-screen'); document.getElementById('wait-msg').innerText = "Cevabın iletildi..."; }
+
+        socket.on('answerReceived', data => {
+            document.getElementById('score-display').innerText = "Puan: " + data.currentScore;
+            if(!data.isCorrect && currentMode !== 'tabu') document.getElementById('funny-text').innerText = "Yanlış Cevap! ❌";
+        });
+
+        function showScreen(id) {
+            ['login-screen','wait-screen','question-screen'].forEach(s => document.getElementById(s).classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
