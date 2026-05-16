@@ -12,8 +12,6 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const rooms = {};
 let liveChatListener = null;
-
-// Chat geçmişini saklamak için küçük bir arabellek (Öncesi/Sonrası mesajı yakalamak için)
 let chatBuffer = [];
 
 // --- Levenshtein Mesafe Algoritması ---
@@ -49,7 +47,7 @@ function cevapDogruMu(gelenCevap, dogruCevap, toleransAcik) {
     const temizDogru = temizleKelime(dogruCevap);
     
     if (temizGelen === temizDogru) return true;
-    if (!toleransAcik) return false; // Tolerans kapalıysa birebir eşleşme şart
+    if (!toleransAcik) return false;
     
     const toleransLimiti = temizDogru.length <= 4 ? 1 : 2;
     return getEditDistance(temizGelen, temizDogru) <= toleransLimiti;
@@ -96,28 +94,38 @@ io.on("connection", (socket) => {
 
     socket.on("setStream", ({ room, youtubeId, chatId }) => {
         if (rooms[room]) {
-            const finalChatId = chatId || youtubeId;
+            let finalId = chatId || youtubeId;
+            if (finalId.includes("v=")) {
+                finalId = finalId.split("v=")[1].split("&")[0];
+            } else if (finalId.includes("youtu.be/")) {
+                finalId = finalId.split("youtu.be/")[1].split("?")[0];
+            } else if (finalId.includes("live/")) {
+                finalId = finalId.split("live/")[1].split("?")[0];
+            }
+
             rooms[room].youtubeId = youtubeId;
-            rooms[room].chatId = finalChatId;
+            rooms[room].chatId = finalId;
             
-            socket.to(room).emit("updateStream", { youtubeId, chatId: finalChatId });
+            socket.to(room).emit("updateStream", { youtubeId, chatId: finalId });
 
             if (liveChatListener) {
                 try { liveChatListener.stop(); } catch(e){}
             }
 
             chatBuffer = [];
-            liveChatListener = new LiveChat({ liveId: finalChatId });
+            liveChatListener = new LiveChat({ liveId: finalId });
             
             liveChatListener.on("chat", (chatItem) => {
-                const roomData = rooms[room];
+                if (!chatItem.message || chatItem.message.length === 0) return;
+                
                 const yazarAdi = chatItem.author.name;
                 const mesajMetni = chatItem.message[0].text;
                 
                 const mevcutMesaj = { author: yazarAdi, text: mesajMetni, id: chatItem.id };
                 chatBuffer.push(mevcutMesaj);
-                if (chatBuffer.length > 20) chatBuffer.shift();
+                if (chatBuffer.length > 30) chatBuffer.shift();
 
+                const roomData = rooms[room];
                 if (!roomData || !roomData.currentQuestion) return;
 
                 if (roomData.players[yazarAdi] === undefined) {
@@ -128,7 +136,6 @@ io.on("connection", (socket) => {
                 const q = roomData.currentQuestion;
 
                 if (cevapDogruMu(mesajMetni, q.correctAnswer, roomData.toleransAcik)) {
-                    // Puan hesaplama
                     const elapsed = (Date.now() - q.startTime) / 1000;
                     const speedRatio = Math.max(0, 1 - (elapsed / q.duration));
                     const finalScore = 40 + Math.round(speedRatio * 60);
@@ -137,11 +144,9 @@ io.on("connection", (socket) => {
 
                     if (roomData.timer) clearInterval(roomData.timer);
                     
-                    // VAR Kesitini Hazırlama (Öncesi ve Sonrası)
                     const kazananIdx = chatBuffer.findIndex(m => m.id === chatItem.id);
                     const onceki = kazananIdx > 0 ? chatBuffer[kazananIdx - 1] : { author: "Sistem", text: "..." };
                     
-                    // Sonraki mesajı yakalamak için milisaniyelik bir gecikmeyle gönderiyoruz
                     setTimeout(() => {
                         const sonraki = chatBuffer[kazananIdx + 1] || { author: "Sistem", text: "..." };
                         
@@ -162,7 +167,7 @@ io.on("connection", (socket) => {
                 }
             });
 
-            liveChatListener.start().catch(err => console.error("Chat başlatma hatası:", err));
+            liveChatListener.start().catch(err => console.error("Chat hatası:", err));
         }
     });
 
