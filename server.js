@@ -46,7 +46,8 @@ function cevapDogruMu(gelenCevap, dogruCevap, toleransAcik) {
     const temizGelen = temizleKelime(gelenCevap);
     const temizDogru = temizleKelime(dogruCevap);
     
-    if (temizGelen === temizDogru) return true;
+    // Chatten gelen mesaj direkt aranan kelimeyi içeriyor mu veya birebir mi?
+    if (temizGelen === temizDogru || temizGelen.includes(temizDogru)) return true;
     if (!toleransAcik) return false;
     
     const toleransLimiti = temizDogru.length <= 4 ? 1 : 2;
@@ -95,6 +96,8 @@ io.on("connection", (socket) => {
     socket.on("setStream", ({ room, youtubeId, chatId }) => {
         if (rooms[room]) {
             let finalId = chatId || youtubeId;
+            
+            // Link temizleme algoritmamızı sağlama alıyoruz
             if (finalId.includes("v=")) {
                 finalId = finalId.split("v=")[1].split("&")[0];
             } else if (finalId.includes("youtu.be/")) {
@@ -113,7 +116,20 @@ io.on("connection", (socket) => {
             }
 
             chatBuffer = [];
-            liveChatListener = new LiveChat({ liveId: finalId });
+            
+            // YouTube engelini aşmak için fetch opsiyonları eklenmiş güçlü dinleyici kurgusu
+            liveChatListener = new LiveChat({ 
+                liveId: finalId,
+                interval: 1000 // Chati her 1 saniyede bir agresif şekilde sorgula
+            });
+            
+            liveChatListener.on("start", (liveId) => {
+                console.log(`✅ CHAT DİNLEYİCİ AKTİF EDİLDİ -> ID: ${liveId}`);
+            });
+
+            liveChatListener.on("error", (err) => {
+                console.error("❌ YOUTUBE CHAT BAĞLANTI HATASI:", err);
+            });
             
             liveChatListener.on("chat", (chatItem) => {
                 if (!chatItem.message || chatItem.message.length === 0) return;
@@ -121,6 +137,9 @@ io.on("connection", (socket) => {
                 const yazarAdi = chatItem.author.name;
                 const mesajMetni = chatItem.message[0].text;
                 
+                // Arka planda gelen her mesajı sunucu loglarında görelim kanka
+                console.log(`💬 [CHAT]: ${yazarAdi} -> ${mesajMetni}`);
+
                 const mevcutMesaj = { author: yazarAdi, text: mesajMetni, id: chatItem.id };
                 chatBuffer.push(mevcutMesaj);
                 if (chatBuffer.length > 30) chatBuffer.shift();
@@ -128,14 +147,15 @@ io.on("connection", (socket) => {
                 const roomData = rooms[room];
                 if (!roomData || !roomData.currentQuestion) return;
 
-                if (roomData.players[yazarAdi] === undefined) {
-                    roomData.players[yazarAdi] = 0;
-                    io.to(roomData.adminId).emit("updateLeaderboard", roomData.players);
-                }
-
                 const q = roomData.currentQuestion;
 
                 if (cevapDogruMu(mesajMetni, q.correctAnswer, roomData.toleransAcik)) {
+                    console.log(`🎯 DOĞRU CEVAP BULUNDU! Kazanan: ${yazarAdi}`);
+                    
+                    if (roomData.players[yazarAdi] === undefined) {
+                        roomData.players[yazarAdi] = 0;
+                    }
+
                     const elapsed = (Date.now() - q.startTime) / 1000;
                     const speedRatio = Math.max(0, 1 - (elapsed / q.duration));
                     const finalScore = 40 + Math.round(speedRatio * 60);
@@ -167,7 +187,7 @@ io.on("connection", (socket) => {
                 }
             });
 
-            liveChatListener.start().catch(err => console.error("Chat hatası:", err));
+            liveChatListener.start().catch(err => console.error("Chat baslatma hatasi:", err));
         }
     });
 
