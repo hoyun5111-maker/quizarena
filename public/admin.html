@@ -2,136 +2,242 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Quiz Arena - Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Arena - Yönetim Paneli</title>
     <script src="/socket.io/socket.io.js"></script>
-    <style>
-        body { font-family: sans-serif; background: #2d3436; color: #fff; padding: 20px; display: flex; gap: 20px; }
-        .left-side { flex: 1.5; }
-        .right-side { flex: 1; background: #353b48; padding: 20px; border-radius: 10px; height: fit-content; max-height: 85vh; overflow-y: auto;}
-        .box { background: #353b48; padding: 20px; border-radius: 10px; margin-bottom: 15px; }
-        input, select, button { width: 100%; padding: 12px; margin: 6px 0; border-radius: 6px; border: none; box-sizing: border-box; font-size: 15px;}
-        button { background: #44bd32; color: white; font-weight: bold; cursor: pointer; }
-        .stop-btn { background: #c23616; margin-top: 10px; }
-        .player-row { display: flex; justify-content: space-between; background: #2d3436; padding: 12px; margin: 6px 0; border-radius: 6px; border-left: 5px solid #6c5ce7; }
-        .rank-1 { border-left-color: #f1c40f; background: #485460; }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="bg-slate-900 text-slate-100 min-height-screen font-sans">
 
-    <div class="left-side">
-        <h2>Quiz Arena Yönetim Paneli 👑</h2>
-        <div class="box">
-            <h3>1. Oda Kurulumu</h3>
-            <input type="text" id="roomCode" placeholder="ODA KODU (Örn: TEST)">
-            <button onclick="createRoom()">ODAYI ETKİNLEŞTİR</button>
-            <p id="status" style="color:#fbc531; font-weight:bold; margin-top:10px;"></p>
-        </div>
-
-        <div class="box">
-            <h3>2. Soru ve Medya Paneli</h3>
-            <input type="text" id="qText" placeholder="Soru metni...">
-            <input type="text" id="qAns" placeholder="Doğru Cevap (Şıklıysa 0, 1, 2 veya 3)">
-            <input type="number" id="qTime" value="30" placeholder="Süre">
-            
-            <select id="qMode">
-                <option value="quiz">Quiz Modu (Hız Bonuslu)</option>
-                <option value="tabu">Tabu Modu</option>
-            </select>
-
-            <select id="qType" onchange="toggleOptions()">
-                <option value="text">Klasik Metin</option>
-                <option value="multiple">Çoktan Seçmeli (4 Şık)</option>
-            </select>
-
-            <div id="options-box" style="display:none; border: 1px dashed #718093; padding: 10px; margin: 5px 0;">
-                <input type="text" id="opt0" placeholder="A Şıkkı">
-                <input type="text" id="opt1" placeholder="B Şıkkı">
-                <input type="text" id="opt2" placeholder="C Şıkkı">
-                <input type="text" id="opt3" placeholder="D Şıkkı">
-            </div>
-
-            <div style="margin-top: 15px; border-top: 1px solid #57606f; padding-top: 10px;">
-                <label style="font-size:13px; color:#a4b0be;">YouTube Canlı Yayın ID:</label>
-                <input type="text" id="streamId" placeholder="Örn: 5g2h_R9wXq8">
-                
-                <label style="font-size:13px; color:#a4b0be;">YouTube Canlı Chat ID:</label>
-                <input type="text" id="chatId" placeholder="Örn: 5g2h_R9wXq8">
-            </div>
-
-            <button style="margin-top:15px;" onclick="sendQuestion()">SORUYU BAŞLAT 🚀</button>
-            <button class="stop-btn" onclick="forceStop()">SÜREYİ KES 🛑</button>
+    <div id="auth-screen" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 border border-slate-700 p-8 rounded-2xl max-w-sm w-full text-center shadow-2xl">
+            <h1 class="text-2xl font-black text-indigo-400 mb-2">🔒 Admin Girişi</h1>
+            <p class="text-slate-400 text-sm mb-6">Lütfen devam etmek için admin şifresini girin.</p>
+            <input type="password" id="password-input" placeholder="Şifre" class="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-center text-lg font-bold tracking-widest text-white focus:outline-none focus:border-indigo-500 mb-4">
+            <button onclick="checkAdminPassword()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition">Giriş Yap</button>
+            <p id="auth-error" class="text-red-400 text-sm font-semibold mt-4 hidden">Hatalı şifre kanka!</p>
         </div>
     </div>
 
-    <div class="right-side">
-        <h3 style="border-bottom: 2px solid #6c5ce7; padding-bottom: 8px; margin-top: 0;">Katılımcılar & Skorlar 🏆</h3>
-        <div id="leaderboard-list">
-            <p style="color:#a4b0be; font-style:italic;">Oyuncu bekleniyor...</p>
+    <div id="admin-panel" class="hidden max-w-5xl mx-auto p-4 md:p-8 space-y-8">
+        
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4 shadow-lg">
+            <div>
+                <h1 class="text-2xl font-extrabold text-indigo-400">🎛️ Quiz Arena Canlı Kontrol Merkezi</h1>
+                <p class="text-slate-400 text-sm mt-1">Yarışmayı yönetin, yayını bağlayın ve skorları izleyin.</p>
+            </div>
+            <div class="flex gap-2">
+                <input type="text" id="room-input" placeholder="Oda Kodu (Örn: YAYIN)" class="bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 font-bold uppercase w-40 text-center focus:outline-none focus:border-indigo-500">
+                <button onclick="createRoom()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2 rounded-xl transition shadow">Oda Kur</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            
+            <div class="md:col-span-2 space-y-8">
+                
+                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-lg space-y-4">
+                    <h2 class="text-lg font-bold border-b border-slate-700 pb-2 text-indigo-300">📺 YouTube Canlı Yayın Entegrasyonu</h2>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <input type="text" id="yt-input" placeholder="YouTube Canlı Yayın Video ID'si" class="bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 flex-1 text-sm focus:outline-none focus:border-indigo-500">
+                        <button onclick="updateStream()" class="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl transition shadow">Yayını Odalara Bağla</button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-lg space-y-6">
+                    <h2 class="text-lg font-bold border-b border-slate-700 pb-2 text-indigo-300">📝 Soru Yönetim İstasyonu</h2>
+                    
+                    <div class="flex gap-4 bg-slate-900 p-1 rounded-xl border border-slate-700">
+                        <button onclick="switchType('choice')" id="type-choice-btn" class="flex-1 py-2 rounded-lg font-bold text-sm bg-indigo-600 text-white transition">Çoktan Seçmeli (Şıklı)</button>
+                        <button onclick="switchType('text')" id="type-text-btn" class="flex-1 py-2 rounded-lg font-bold text-sm text-slate-400 hover:text-slate-200 transition">Klasik (Yazı Yazmalı)</button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Soru Metni</label>
+                            <textarea id="question-input" rows="2" placeholder="Örn: Nüfusu en kalabalık ülke hangisidir?" class="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500"></textarea>
+                        </div>
+
+                        <div id="choice-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-xs font-bold text-slate-400">A Seçeneği</label>
+                                <input type="text" id="opt-a" class="w-full bg-slate-900 border border-slate-600 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-400">B Seçeneği</label>
+                                <input type="text" id="opt-b" class="w-full bg-slate-900 border border-slate-600 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-400">C Seçeneği</label>
+                                <input type="text" id="opt-c" class="w-full bg-slate-900 border border-slate-600 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-400">D Seçeneği</label>
+                                <input type="text" id="opt-d" class="w-full bg-slate-900 border border-slate-600 rounded-xl p-2.5 text-sm mt-1 focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label id="answer-label" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Doğru Şık (A, B, C veya D)</label>
+                                <input type="text" id="correct-input" placeholder="Örn: A" class="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500 uppercase">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Soru Süresi (Saniye)</label>
+                                <input type="number" id="duration-input" value="20" class="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+
+                        <button onclick="sendQuestion()" class="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 rounded-xl transition shadow-lg text-lg transform hover:-translate-y-0.5">Soruyu Odadaki Herkese Gönder 🚀</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-lg flex flex-col h-[520px]">
+                <h2 class="text-lg font-bold border-b border-slate-700 pb-2 text-yellow-400 flex justify-between items-center">
+                    <span>🏆 Canlı Skor Tablosu</span>
+                    <span id="live-timer" class="text-sm bg-slate-900 border border-slate-700 px-3 py-1 rounded-full text-indigo-400 hidden">0s</span>
+                </h2>
+                <div id="leaderboard-list" class="mt-4 space-y-2 flex-1 overflow-y-auto pr-1">
+                    <p class="text-slate-500 text-sm text-center py-8">Henüz odaya katılan oyuncu yok.</p>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         const socket = io();
-        let activeRoom = "";
+        let currentRoom = "";
+        let currentType = "choice"; // 'choice' veya 'text'
+
+        function checkAdminPassword() {
+            const pass = document.getElementById("password-input").value;
+            if(pass === "zurafa") {
+                document.getElementById("auth-screen").classList.add("hidden");
+                document.getElementById("admin-panel").classList.remove("hidden");
+            } else {
+                const err = document.getElementById("auth-error");
+                err.classList.remove("hidden");
+                setTimeout(() => err.classList.add("hidden"), 3000);
+            }
+        }
+
+        function switchType(type) {
+            currentType = type;
+            const choiceBtn = document.getElementById("type-choice-btn");
+            const textBtn = document.getElementById("type-text-btn");
+            const choiceFields = document.getElementById("choice-fields");
+            const answerLabel = document.getElementById("answer-label");
+            const correctInput = document.getElementById("correct-input");
+
+            if(type === "text") {
+                choiceBtn.className = "flex-1 py-2 rounded-lg font-bold text-sm text-slate-400 hover:text-slate-200 transition";
+                textBtn.className = "flex-1 py-2 rounded-lg font-bold text-sm bg-indigo-600 text-white transition";
+                choiceFields.classList.add("hidden");
+                answerLabel.innerText = "Doğru Kelime / Cevap Metni";
+                correctInput.placeholder = "Örn: Çin";
+                correctInput.className = "w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500";
+            } else {
+                choiceBtn.className = "flex-1 py-2 rounded-lg font-bold text-sm bg-indigo-600 text-white transition";
+                textBtn.className = "flex-1 py-2 rounded-lg font-bold text-sm text-slate-400 hover:text-slate-200 transition";
+                choiceFields.classList.remove("hidden");
+                answerLabel.innerText = "Doğru Şık (A, B, C veya D)";
+                correctInput.placeholder = "Örn: A";
+                correctInput.className = "w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500 uppercase";
+            }
+        }
 
         function createRoom() {
-            const code = document.getElementById('roomCode').value.toUpperCase().trim();
-            if(!code) return alert("Kod girin!");
-            socket.emit('createRoom', { roomId: code });
-        }
+            const room = document.getElementById("room-input").value.trim().toUpperCase();
+            if(!room) return alert("Oda kodu boş olamaz kanka!");
 
-        socket.on('roomCreated', (id) => {
-            activeRoom = id;
-            document.getElementById('status').innerText = `Oda Kuruldu: ${activeRoom}`;
-        });
-
-        function toggleOptions() {
-            const type = document.getElementById('qType').value;
-            document.getElementById('options-box').style.display = (type === 'multiple') ? 'block' : 'none';
-        }
-
-        socket.on('updatePlayers', players => {
-            const listContainer = document.getElementById('leaderboard-list');
-            listContainer.innerHTML = "";
-            if(players.length === 0) {
-                listContainer.innerHTML = '<p style="color:#a4b0be; font-style:italic;">Oyuncu yok.</p>';
-                return;
-            }
-            const sorted = [...players].sort((a,b) => b.score - a.score);
-            sorted.forEach((p, idx) => {
-                const row = document.createElement('div');
-                row.className = `player-row ${idx === 0 ? 'rank-1' : ''}`;
-                row.innerHTML = `<span><b>#${idx + 1}</b> ` + p.username + `</span><span><b>` + p.score + ` P</b></span>`;
-                listContainer.appendChild(row);
+            socket.emit("joinRoom", { room, name: "Yayıncı", role: "admin" }, (response) => {
+                if(response.success) {
+                    currentRoom = room;
+                    alert(`Oda #${room} başarıyla kuruldu ve yönetim bağlandı!`);
+                } else {
+                    alert(response.message);
+                }
             });
-        });
+        }
+
+        function updateStream() {
+            const ytId = document.getElementById("yt-input").value.trim();
+            if(!currentRoom) return alert("Önce odayı kurmalısın kanka!");
+            if(!ytId) return alert("Lütfen geçerli bir YouTube Video ID girin.");
+
+            socket.emit("setStream", { room: currentRoom, youtubeId: ytId });
+            alert("Canlı yayın bağlantısı tüm oyunculara aktarıldı!");
+        }
 
         function sendQuestion() {
-            if(!activeRoom) return alert("Oda yok!");
-            const text = document.getElementById('qText').value;
-            const answer = document.getElementById('qAns').value;
-            const timeLeft = document.getElementById('qTime').value;
-            const mode = document.getElementById('qMode').value;
-            const type = document.getElementById('qType').value;
-            const streamId = document.getElementById('streamId').value.trim();
-            const chatId = document.getElementById('chatId').value.trim();
+            if(!currentRoom) return alert("Önce bir oda oluşturmalısın kanka!");
+            
+            const question = document.getElementById("question-input").value.trim();
+            const correctAnswer = document.getElementById("correct-input").value.trim();
+            const duration = parseInt(document.getElementById("duration-input").value) || 20;
 
-            let options = [];
-            if(type === 'multiple') {
-                options = [
-                    document.getElementById('opt0').value,
-                    document.getElementById('opt1').value,
-                    document.getElementById('opt2').value,
-                    document.getElementById('opt3').value
-                ];
+            if(!question || !correctAnswer) return alert("Soru ve doğru cevap boş bırakılamaz.");
+
+            let questionData = {
+                room: currentRoom,
+                type: currentType,
+                question: question,
+                correctAnswer: correctAnswer,
+                duration: duration
+            };
+
+            if(currentType === "choice") {
+                questionData.a = document.getElementById("opt-a").value.trim();
+                questionData.b = document.getElementById("opt-b").value.trim();
+                questionData.c = document.getElementById("opt-c").value.trim();
+                questionData.d = document.getElementById("opt-d").value.trim();
+                questionData.correctAnswer = correctAnswer.toUpperCase();
+
+                if(!questionData.a || !questionData.b) return alert("Çoktan seçmeli soruda en az A ve B şıkları dolu olmalıdır.");
             }
 
-            socket.emit('startQuestion', {
-                roomId: activeRoom, text, answer, timeLeft, mode, type, options, streamId, chatId
-            });
+            socket.emit("startQuestion", questionData);
+            document.getElementById("live-timer").classList.remove("hidden");
         }
 
-        function forceStop() { if(activeRoom) socket.emit('adminForceTimeUp', { roomId: activeRoom }); }
+        socket.on("tick", (time) => {
+            document.getElementById("live-timer").innerText = time + "s";
+        });
+
+        socket.on("questionEnded", () => {
+            document.getElementById("live-timer").classList.add("hidden");
+        });
+
+        socket.on("updateLeaderboard", (scores) => {
+            const listEl = document.getElementById("leaderboard-list");
+            listEl.innerHTML = "";
+
+            const sortedPlayers = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+
+            if(sortedPlayers.length === 0) {
+                listEl.innerHTML = '<p class="text-slate-500 text-sm text-center py-8">Henüz odaya katılan oyuncu yok.</p>';
+                return;
+            }
+
+            sortedPlayers.forEach(([name, score], idx) => {
+                let medal = "⚪";
+                if(idx === 0) medal = "🥇";
+                if(idx === 1) medal = "🥈";
+                if(idx === 2) medal = "🥉";
+
+                const row = document.createElement("div");
+                row.className = "flex justify-between items-center bg-slate-900 border border-slate-700/60 p-3 rounded-xl";
+                row.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="text-base">${medal}</span>
+                        <span class="font-bold text-sm ${idx===0 ? 'text-yellow-400': 'text-slate-200'}">${name}</span>
+                    </div>
+                    <span class="bg-indigo-950 text-indigo-400 text-xs font-black border border-indigo-800 px-3 py-1 rounded-md">${score} Puan</span>
+                `;
+                listEl.appendChild(row);
+            });
+        });
     </script>
 </body>
 </html>
