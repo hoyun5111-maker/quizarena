@@ -27,7 +27,7 @@
                 <p class="text-slate-400 text-sm mt-1">Yarışmayı yönetin, yayını bağlayın ve skorları izleyin.</p>
             </div>
             <div class="flex gap-2">
-                <input type="text" id="room-input" placeholder="Oda Kodu (Örn: YAYIN)" class="bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 font-bold uppercase w-40 text-center focus:outline-none focus:border-indigo-500">
+                <input type="text" id="room-input" placeholder="Oda Kodu" class="bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 font-bold uppercase w-40 text-center focus:outline-none focus:border-indigo-500">
                 <button onclick="createRoom()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2 rounded-xl transition shadow">Oda Kur</button>
             </div>
         </div>
@@ -37,11 +37,18 @@
             <div class="md:col-span-2 space-y-8">
                 
                 <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-lg space-y-4">
-                    <h2 class="text-lg font-bold border-b border-slate-700 pb-2 text-indigo-300">📺 YouTube Canlı Yayın Entegrasyonu</h2>
-                    <div class="flex flex-col sm:flex-row gap-3">
-                        <input type="text" id="yt-input" placeholder="YouTube Canlı Yayın Video ID'si" class="bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 flex-1 text-sm focus:outline-none focus:border-indigo-500">
-                        <button onclick="updateStream()" class="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl transition shadow">Yayını Odalara Bağla</button>
+                    <h2 class="text-lg font-bold border-b border-slate-700 pb-2 text-indigo-300">📺 YouTube Entegrasyon İstasyonu</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 mb-1">YouTube Canlı Yayın Video ID</label>
+                            <input type="text" id="yt-input" placeholder="Örn: 5xK_7_d8w-w" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 mb-1">YouTube Chat ID (İsteğe Bağlı)</label>
+                            <input type="text" id="chat-input" placeholder="Boş bırakılırsa Yayın ID kullanılır" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-500">
+                        </div>
                     </div>
+                    <button onclick="updateStream()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition shadow">Medya Verilerini Odalara Senkronize Et 📡</button>
                 </div>
 
                 <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-lg space-y-6">
@@ -55,7 +62,7 @@
                     <div class="space-y-4">
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Soru Metni</label>
-                            <textarea id="question-input" rows="2" placeholder="Örn: Nüfusu en kalabalık ülke hangisidir?" class="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500"></textarea>
+                            <textarea id="question-input" rows="2" placeholder="Soru metnini yazın kanka..." class="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500"></textarea>
                         </div>
 
                         <div id="choice-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -93,7 +100,7 @@
                 </div>
             </div>
 
-            <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-lg flex flex-col h-[520px]">
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-lg flex flex-col h-[560px]">
                 <h2 class="text-lg font-bold border-b border-slate-700 pb-2 text-yellow-400 flex justify-between items-center">
                     <span>🏆 Canlı Skor Tablosu</span>
                     <span id="live-timer" class="text-sm bg-slate-900 border border-slate-700 px-3 py-1 rounded-full text-indigo-400 hidden">0s</span>
@@ -108,7 +115,7 @@
     <script>
         const socket = io();
         let currentRoom = "";
-        let currentType = "choice"; // 'choice' veya 'text'
+        let currentType = "choice";
 
         function checkAdminPassword() {
             const pass = document.getElementById("password-input").value;
@@ -163,11 +170,12 @@
 
         function updateStream() {
             const ytId = document.getElementById("yt-input").value.trim();
+            const chatId = document.getElementById("chat-input").value.trim();
             if(!currentRoom) return alert("Önce odayı kurmalısın kanka!");
             if(!ytId) return alert("Lütfen geçerli bir YouTube Video ID girin.");
 
-            socket.emit("setStream", { room: currentRoom, youtubeId: ytId });
-            alert("Canlı yayın bağlantısı tüm oyunculara aktarıldı!");
+            socket.emit("setStream", { room: currentRoom, youtubeId: ytId, chatId: chatId });
+            alert("Canlı yayın ve Chat bağlantısı başarıyla senkronize edildi!");
         }
 
         function sendQuestion() {
